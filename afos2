@@ -1,0 +1,715 @@
+import requests
+import pandas as pd
+import numpy as np
+from datetime import datetime, timedelta
+from concurrent.futures import ThreadPoolExecutor
+import time
+
+# Replace with your Polygon API key
+API_KEY = "Mnww0hqHNyrh3GTfpFxqpXAqfU2T9pm4"
+
+TICKERS1 = ['ABT', 'SNAP', 'RIOT', 'MARA', 'SPY', 'INTC', 'PFE', 'T', 'CMCSA', 'VZ', 'BAC', 'BMY', 'CSCO']
+TICKERS  = [ 'ABT','SNAP','RIOT','MARA','SPY','INTC','PFE','T','CMCSA','VZ','BAC','BMY','CSCO',
+    'MDLZ','ENPH', 'KO','NEE','NKE','WFC','UBER','C','SCHW','SO','MRK','WMT','MU','BSX','DIS','GILD','XOM','AMD','SBUX','UPS','PLD','TJX','RTX','MS','KKR','NVDA','ABT',
+     'PAYX','PEP','PM','CVX','BX', 'LASE',  'IBIT',    
+    'ABBV',
+     'JMIA',
+    'ACN',
+    'ADBE',
+    'AMD',
+    'AAP',
+    'XLK',
+    #'AFL',
+    'A',
+    #'APD',
+    'AKAM',
+    'ALK',
+    'ALB',
+    'ARE',
+    'ALGN',
+    'ALLE',
+    'LNT',
+    'ALL',
+    'GOOGL',
+    'GOOG',
+    #'MO',
+    'AMZN',
+    'AMCR',
+    'AEE',
+    'AAL',
+    'AEP',
+    'AXP',
+    'AIG',
+    'AMT',
+    'AWK',
+    'AMP',
+    #'ABC',
+    'AME',
+    'AMGN',
+    'APH',
+    'ADI',
+    'ANSS',
+    'AON',
+    'AOS',
+    'APA',
+    'AIV',
+    'AAPL',
+    'AMAT',
+    'APTV',
+    'ADM',
+    #'ARNC',
+    'ANET',
+    'AJG',
+    'AIZ',
+    'ATO',
+    #'T',
+    'ADSK',
+    'ADP',
+    'AZO',
+    'AVB',
+    'AVY',
+   # 'BKR',
+    'BAC',
+    'BK',
+    'BAX',
+    'BDX',
+    'BBY',
+    'BIIB',
+    'BLK',
+    'BA',
+    'BKNG',
+    'BWA',
+    'BXP',
+    'BSX',
+    'BMY',
+    'BR',
+    'CHRW',
+    'CDNS',
+    'CPB',
+    'COF',
+    'CPRI',
+    'CAH',
+    'KMX',
+    'CCL',
+    'CAT',
+    'CBOE',
+    'CBRE',
+    'CDW',
+    'CE',
+    'CNC',
+    'CNP',
+    'CF',
+    #'SCHW',
+    'CHTR',
+    'CVX',
+    'CMG',
+    'CB',
+    'CHD',
+    'CI',
+    'CINF',
+    'CTAS',
+    'CSCO',
+    'C',
+    'CFG',
+    'CLX',
+    'CME',
+    'CMS',
+    'KO',
+    'CTSH',
+    'CL',
+    #'CMCSA',
+    'CMA',
+    'CAG',
+    
+    'ED',
+    'STZ',
+    'COO',
+    'CPRT',
+    'GLW',
+    'CTVA',
+    'COST',
+    'COTY',
+    'CCI',
+    'CSX',
+    'CMI',
+    'CVS',
+    'DHI',
+    'DHR',
+    'DRI',
+    'DVA',
+    'DE',
+    'DAL',
+    'XRAY',
+    'DVN',
+    'FANG',
+    'DLR',
+    'DFS',
+#    'DGX',
+    'DG',
+    'DLTR',
+    'D',
+    'DOV',
+    'DOW',
+    'DTE',
+    'DUK',
+    'DD',
+    'DXC',
+    'EMN',
+    'ETN',
+    'HCA',
+    'EBAY',
+    'ECL',
+    'EIX',
+    'EW',
+    'EA',
+    'EMR',
+    'ETR',
+    'EOG',
+    'EFX',
+    'EQIX',
+    'EQR',
+    'ESS',
+    'EL',
+    'EVRG',
+    'ES',
+   # 'RE',
+    'EXC',
+    'EXPE',
+    'EXPD',
+    'EXR',
+    'XOM',
+    'FFIV',
+
+    'FAST',
+    'FRT',
+    'FDX',
+    'FIS',
+    'FITB',
+    'FE',
+
+   # 'FISV',
+   
+
+   # 'FLS',
+    'FMC',
+    'F',
+    'FTNT',
+    'FTV',
+
+    'FOXA',
+    'FOX',
+    'BEN',
+    'FCX',
+    #'GPS',
+    'GRMN',
+    'IT',
+    'GD',
+    'GE',
+    'GIS',
+    'GM',
+    'GPC',
+    'GILD',
+    'GL',
+    'GPN',
+    'GS',
+    'GWW',
+    'HRB',
+    'HAL',
+    'HBI',
+    'HOG',
+    'HIG',
+    'HAS',
+    'HCA',
+   # 'PEAK',
+    'HP',
+    'HSIC',
+    'HSY',
+    'HES',
+    'HPE',
+    'HLT',
+    'HOLX',
+    'HD',
+    'HON',
+    'HRL',
+    'HST',
+    'HPQ',
+    'HUM',
+    'HBAN',
+    'HII',
+    'IEX',
+    'IDXX',
+    'ITW',
+    'ILMN',
+    'IR',
+    'INTC',
+    'ICE',
+    'IBM',
+    'INCY',
+    'IP',
+    'IPG',
+    'IFF',
+    'INTU',
+    'ISRG',
+    'IVZ',
+    'IPGP',
+    'IQV',
+    'IRM',
+    'JKHY',
+    'J',
+    'JBHT',
+    'SJM',
+    'JNJ',
+    'JCI',
+    'JPM',
+    'JNPR',
+    'K',
+    #'KEY',
+    'KEYS',
+    'KMB',
+    'KIM',
+    'KMI',
+    'KLAC',
+    'KSS',
+    'KHC',
+    'LHX',
+    'LH',
+    'LRCX',
+    'LW',
+    'LVS',
+    'LEG',
+    'LDOS',
+    'LEN',
+    'LLY',
+    'LNC',
+    'LIN',
+    'LYV',
+    'LKQ',
+    'LMT',
+    'L',
+    'LOW',
+    'LYB',
+    'MTB',
+    'M',
+    #'MRO',
+    'MPC',
+    'MKTX',
+    'MAR',
+    'MMC',
+    'MLM',
+    'MAS',
+    'MA',
+    'MKC',
+
+    'MCD',
+    'MCK',
+    'MDT',
+    'MRK',
+    'MET',
+    'MTD',
+    'MGM',
+    'MCHP',
+    'MU',
+    'MSFT',
+    'MAA',
+    'MHK',
+    'TAP',
+    'MDLZ',
+    'MNST',
+    'MCO',
+    'MS',
+    'MOS',
+    'MSI',
+    'MSCI',
+
+    'NDAQ',
+    'NOV',
+    'NTAP',
+    'NFLX',
+    'NWL',
+    'NEM',
+    'NWSA',
+    'NWS',
+    'NEE',
+
+    'NKE',
+    'NI',
+
+    'JWN',
+    'NSC',
+    'NTRS',
+    'NOC',
+     'NU',
+    'NCLH',
+    'NRG',
+    'NUE',
+    'NVDA',
+    'NVR',
+    'ORLY',
+    'OXY',
+    'ODFL',
+    'OMC',
+    'OKE',
+    'ORCL',
+    'PCAR',
+    'PKG',
+    'PH',
+    'PAYX',
+    'PYPL',
+    'PNR',
+
+    'PEP',
+    #'PKI',
+    'PRGO',
+    'PFE',
+    'PM',
+    'PSX',
+    'PNW',
+   
+    'PNC',
+    'PPG',
+    'PPL',
+    'PFG',
+    'PG',
+    'PGR',
+    'PLD',
+    'PRU',
+    'PEG',
+    'PSA',
+    'PHM',
+    'PVH',
+    'QRVO',
+    'PWR',
+    'QCOM',
+    'DGX',
+    'RL',
+    'RJF',
+
+    'O',
+    'REG',
+    'REGN',
+    'RF',
+    'RSG',
+    'RMD',
+    'RHI',
+    'ROK',
+    'ROL',
+    'ROP',
+    'ROST',
+    'RCL',
+    'SPGI',
+    'CRM',
+    'SBAC',
+    'SLB',
+    'STX',
+    'SEE',
+    'SRE',
+    'NOW',
+    'SHW',
+    'SPG',
+    'SWKS',
+    'SLG',
+    'SNA',
+    'SO',
+    'LUV',
+    'SWK',
+    'SBUX',
+    'STT',
+    'STE',
+    'SYK',
+    #'SIVB',
+    'SYF',
+    'SNPS',
+    'SYY',
+    'TMUS',
+    'TROW',
+    'TTWO',
+    'TPR',
+    'TGT',
+    'TEL',
+    'FTI',
+    'TFX',
+    'TXN',
+    'TXT',
+    'TMO',
+
+    'TJX',
+    'TSCO',
+    'TDG',
+    'TRV',
+    'TFC',
+
+    'TSN',
+    'UDR',
+    'ULTA',
+    'USB',
+    'UAA',
+    'UA',
+    'UNP',
+    'UAL',
+    'UNH',
+    'UPS',
+    'URI',
+
+    'UHS',
+    'UNM',
+    'VFC',
+    'VLO',
+
+    'VTR',
+    'VRSN',
+    'VRSK',
+    'VZ',
+    'VRTX',
+
+    'V',
+    'VNO',
+    'VMC',
+    'WRB',
+    'WAB',
+    'WMT',
+    'WBA',
+    'DIS',
+    'WM',
+    'WAT',
+    'WEC',
+
+    'WFC',
+   'WELL',
+    'WDC',
+    'WU',
+    #'WRK',
+    'WY',
+    'WHR',
+    'WMB',
+
+    'WYNN',
+    'XEL',
+    'XRX',
+
+    'XYL',
+    'YUM',
+    'ZBRA',
+    'ZBH',
+    'ZION',
+    'ZTS',
+   'QQQ',
+   'KOPN',
+   'BLNK',
+   'MVIS',
+   'BITF',
+   'CAN',
+   'CHGG',
+   'KULR',
+   'LITM',
+   'LPSN',
+   #'ÓPEN',
+   'PACB',
+   'SENS',
+   'SLS',
+   'WW',
+   'ABR',
+   'AA',
+   'ACI',
+   'ACHR',
+   'ABNB',
+   'ADMA',
+   'AEHR',
+   'AEM',
+   'AES',
+   'AG',
+   'AFRM',
+   'AGI',
+   'AGNC',
+   'AI',
+   'AKRO',
+   'ALGM',
+   'ALAB',
+   'ALLO',
+   'ALT',
+   'AMBC',
+   'AMC',
+   'AMPL',
+   'AMTM',
+   'APG',
+   'APLD',
+   'APPS',
+   'AR',
+   'ARRY',
+   'ASLE',
+   'ASTS',
+   'AXP',
+   'BAH',
+   'BB',
+   'BBIO',
+   'BA',
+   'BE',
+   'BABA',
+   'BG',
+   'BHF',
+   'BILI',
+   'BIDU',
+   'BMBL',
+   'BK',
+   'BNTX',
+   'BOX',
+   'BP',
+   'BROS',
+   'BTBT',
+   'BSX',
+   'BTU',
+   'BURL',
+   'BYON',
+   'CAG',
+   'CAL',
+   'CAPR',
+   'CBRE',
+   'CCI',
+   'CLX',
+   'CMG',
+   'COF',
+   'COP'
+   ]
+
+
+
+START_DATE = "2025-04-22"
+END_DATE = "2025-06-30"
+INTERVALS = ["minute", "hour", "day", "week", "month"]
+
+dataframes = []
+
+def fetch_data(ticker, interval):
+    try:
+        url = f"https://api.polygon.io/v2/aggs/ticker/{ticker}/range/1/{interval}/{START_DATE}/{END_DATE}?adjusted=true&sort=asc&limit=120&apiKey={API_KEY}"
+        response = requests.get(url)
+        response.raise_for_status()
+        data = response.json()
+        if "results" in data and "ticker" in data:
+            results = data["results"]
+            df = pd.DataFrame(results)
+            df['ticker'] = ticker
+            df['interval'] = interval
+            df = df.rename(columns={"o": "Open", "c": "Close", "h": "High", "l": "Low"})
+            df = df.drop(columns=['v', 'vw', 'n'])
+            df['H'] = round(df['High'], 0) - 1
+            df['L'] = round(df['Low'], 0) - 1
+            df['t'] = pd.to_datetime(df['t'], unit='ms')
+            df['Volatile'] = df['High'] + df['Low'] + df['Close'] + df['Open']
+            df['Volatile'] = round(np.tan(df['Volatile'].astype(float)), 2)
+          
+            df['Max'] = df.groupby('ticker')['High'].transform('max')
+            df['Min'] = df.groupby('ticker')['Low'].transform('min')
+            df['MM'] = (df['Max'] - df['Min']) * 100 / df['Min']
+            df['Now'] = df.groupby('ticker')['Close'].transform('last')
+            df['LowBu'] = df['Now'] / df['Low']
+            df['HighBe'] = df['Now'] / df['High']
+            df['direction'] = np.where((df['Close'] - 0.15) >= (df['Now']), 'Bear', 'Bull')
+            df['3percall'] = df['High'] * 1.03
+            df['3perputt'] = df['Low'] * 0.97
+            df['5percall'] = df['High'] * 1.05
+            df['5perputt'] = df['Low'] * 0.95
+            df['percentbMin'] = round((df['Now'] - df['Min']) * 100 / df['Min'], 0)
+            df['percentbMax'] = round((df['Max'] - df['Now']) * 100 / df['Now'], 0)
+            df['3perput'] = (np.floor(df['High'] * 0.97)) + 1
+            df['5perput'] = np.floor((df['High'] + df['Low']) / 0.5)
+            df['values'] = df['Low'] - df['3perput']
+            df['valuesH'] = df['High'] - df['3perput']
+            df['values'] = round((df['values']), 1)
+            df['Lowlong'] = (df['Low'] - df['Min']) * 100 / df['Min']
+            df['Highlong'] = (df['High'] - df['Max']) * 100 / df['Max']
+            df['Hightry'] = (df['High'] - df['Max']) * 100 / df['Min']
+            df['Put5'] = round((df['Low'] - 5), 2)
+            df['Put2'] = round((df['Low'] - 2), 2)
+            df['range'] = df['High'] - df['Low']
+            df['avr'] = df['range'].mean()
+            df['Call5'] = df['High'] + 5
+            df['Call2'] = df['High'] + 2
+            df['Wedge'] = np.where(df['3perput'] >= df['Now'], 'Meet', 'Not Meet')
+            df['xu'] = (df['Now'] / df['Low']) * 100
+            df['MA_5'] = df['Close'].rolling(window=5).mean()
+            df['MA_20'] = df['Close'].rolling(window=20).mean()
+            #df["Options1"] = "O:" + df['ticker'].astype(str) + "250228" + "C00" + max(df['H'].astype(str)) + "00"
+            df["Options2"] = "O:" + df['ticker'].astype(str) + "250228" + "C00" + min(df['L'].astype(str)) + "00"
+            return df
+        else:
+            print(f"No results available for {ticker} at {interval} interval.")
+            return None
+    except requests.exceptions.HTTPError as errh:
+        print(f"HTTP Error occurred: {errh} for {ticker} at {interval} interval.")
+        return None
+    except Exception as e:
+        print(f"An error occurred: {e} for {ticker} at {interval} interval.")
+        return None
+
+def main():
+    global dataframes
+    dataframes = []  # Clear previous data
+
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = []
+        for ticker in TICKERS:
+            for interval in INTERVALS:
+                futures.append(executor.submit(fetch_data, ticker, interval))
+
+        for future in futures:
+            result = future.result()
+            if result is not None:
+                dataframes.append(result)
+
+        if dataframes:
+            df_concat = pd.concat(dataframes, ignore_index=True)
+
+            # Get today and yesterday dates
+            today = datetime.now().date()
+            yesterday = today - timedelta(days=1)
+            two_daypast=today - timedelta(days=2)
+            three_daypast=today - timedelta(days=3)
+            mid_15= today - timedelta(days=15)
+            mid_10= today - timedelta(days=10)
+            mid_7= today - timedelta(days=7)
+            
+            
+
+            # Filters
+            base_low_filter = df_concat['Highlong'] == 0
+            base_high_filter = df_concat['Lowlong'] == 0
+
+            Tradelow1_today = df_concat.loc[base_low_filter & (df_concat['t'].dt.date == today)]
+            Tradehigh1_today = df_concat.loc[base_high_filter & (df_concat['t'].dt.date == today)]
+
+            Tradelow1_yesterday = df_concat.loc[base_low_filter & (df_concat['t'].dt.date == yesterday)]
+            Tradehigh1_yesterday = df_concat.loc[base_high_filter & (df_concat['t'].dt.date == yesterday)]
+            
+            Tradelow1_two_daypast = df_concat.loc[base_low_filter & (df_concat['t'].dt.date ==two_daypast)]
+            Tradehigh1_two_daypast = df_concat.loc[base_high_filter & (df_concat['t'].dt.date ==two_daypast)]
+            Tradelow1_three_daypast = df_concat.loc[base_low_filter & (df_concat['t'].dt.date ==three_daypast)]
+            Tradehigh1_three_daypast = df_concat.loc[base_high_filter & (df_concat['t'].dt.date ==three_daypast)]
+            Tradelow1_mid_15 = df_concat.loc[base_low_filter & (df_concat['t'].dt.date ==mid_15)]
+            Tradehigh1_mid_15 = df_concat.loc[base_high_filter & (df_concat['t'].dt.date ==mid_15)]
+            # Print results
+            print(f'\n============== Tradelow1 - TODAY ({today}) ==============================')
+            print(Tradelow1_today)
+            print(f'\n============== Tradelow1 - YESTERDAY ({yesterday}) =======================')
+            print( Tradelow1_yesterday)
+            print(f'\n============== Tradelow1 - two_daypast ({two_daypast}) =======================')
+            print( Tradelow1_two_daypast)
+            print(f'\n============== Tradelow1 - three_daypast ({three_daypast}) =======================')
+            print(  mid_15)
+            print(f'\n============== Tradelow1 -  mid_15 ({ mid_15}) =======================')
+            
+            
+            print( Tradelow1_three_daypast)
+           # print(f'\n============== Tradehigh1 - TODAY ({today}) =============================')
+           # print(Tradehigh1_today)
+
+        
+            #print(f'\n============== Tradehigh1 - YESTERDAY ({yesterday}) ======================')
+           # print(Tradehigh1_yesterday)
+
+# Run every 5 minutes
+if __name__ == "__main__":
+    while True:
+        print(f"\nRunning main loop at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        main()
+        print("Sleeping for 5 minutes...\n")
+        time.sleep(300)

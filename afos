@@ -1,0 +1,248 @@
+import requests
+import pandas as pd
+from datetime import datetime
+import numpy as np
+import schedule
+import time
+from datetime import datetime, timedelta
+
+# Define API endpoint and parameters
+api_key = "NfvJxDD6mJKuRR6cNXcj1fHR9pB2Tpm9"
+endpoint = "https://api.polygon.io/v2/aggs/ticker"
+
+def get_previous_day_open_price(ticker):
+    today = (datetime.today().strftime('%Y-%m-%d'))
+    tomo= (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
+    
+    
+    previous_day = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
+   
+    url = f"https://api.polygon.io/v2/aggs/ticker/{ticker}/range/1/day/{previous_day}/{previous_day}"
+    params = {
+        "apiKey": api_key
+    }
+    response = requests.get(url, params=params)
+    if response.status_code == 200:
+        data = response.json()
+        if 'results' in data and len(data['results']) > 0:
+            open_price = data['results'][0]['o']
+            return open_price
+        else:
+            print(f"Error fetching {ticker} price: No price data available")
+            return None
+    else:
+        print(f"Error fetching {ticker} price: {response.status_code}")
+        return None
+
+def generate_options_tickers(tickers):
+    all_tickers = []
+    today = datetime.today().strftime('%y%m%d')
+   # day3=(datetime.today() - timedelta(days=6)).strftime('%y%m%d')
+    past1=(datetime.today() - timedelta(days=39)).strftime('%y%m%d')
+    past2=(datetime.today() - timedelta(days=8)).strftime('%y%m%d')
+    past3=(datetime.today() - timedelta(days=9)).strftime('%y%m%d')
+    past4=(datetime.today() - timedelta(days=10)).strftime('%y%m%d')
+    #fast1=(datetime.today() + timedelta(days=1)).strftime('%y%m%d')
+    #fast2=(datetime.today() + timedelta(days=2)).strftime('%y%m%d')
+    fast3=(datetime.today() + timedelta(days=1)).strftime('%y%m%d')
+    fast4=(datetime.today() + timedelta(days=2)).strftime('%y%m%d')
+    fast5=(datetime.today() + timedelta(days=3)).strftime('%y%m%d')
+    #fast6=(datetime.today() + timedelta(days=7)).strftime('%y%m%d')
+    #fast7=(datetime.today() + timedelta(days=8)).strftime('%y%m%d')
+    #fast8=(datetime.today() + timedelta(days=5)).strftime('%y%m%d')
+    #dates = [today,fast3,fast4,fast5]
+    dates = [today]
+    prices = {}
+    for ticker in tickers:
+        open_price = get_previous_day_open_price(ticker)
+        if open_price is not None:
+            prices[ticker] = open_price
+    
+    for ticker in tickers:
+        if ticker in prices:
+            current_price = prices[ticker]
+            for date in dates:
+                for i in range(-5,5):
+                    strike_price = round(current_price + i)
+                    call_ticker = f"O:{ticker}{date}C{str(strike_price).zfill(5)}000"
+                    put_ticker = f"O:{ticker}{date}P{str(strike_price).zfill(5)}000"
+                    all_tickers.append(call_ticker)
+                    all_tickers.append(put_ticker)
+    return all_tickers
+tickers1 = [ "KRE","PLX","WNS","LYFT"]
+ticker1s= [ "SPY","IWM","QQQ","SQQQ","XEL","SOXL","TQQQ"]
+tickers= [ "SPY"]
+tickers_list = generate_options_tickers(tickers)
+
+# Rest of your code...
+timespan = "minute"
+#timespan = "seconds"
+from_date = "2025-05-21"
+to_date = "2025-12-30"
+adjusted = "true"
+sort= "asc"
+
+# Initialize empty DataFrames
+all_results_df = pd.DataFrame()
+volatile_df = pd.DataFrame()
+volatile_df_34 = pd.DataFrame()
+volatile_df_92 = pd.DataFrame()
+volatile_df_1255 = pd.DataFrame()
+volatile_df_131 = pd.DataFrame()
+points_0 = pd.DataFrame()
+points_1 = pd.DataFrame()
+Point_2 = pd.DataFrame()
+dfs=[]
+all_results_df1 = pd.DataFrame()
+volatile_df1 = pd.DataFrame()
+
+def fetch_data():
+    global all_results_df, volatile_df, volatile_df_34, volatile_df_92, volatile_df_1255, volatile_df_131,points_0, points_1, Point_2
+    
+    # Loop through each ticker
+    for ticker in tickers_list:
+        # Construct API request
+        params = {
+            "apiKey": api_key,
+            "adjusted": adjusted,
+            "sort": sort,
+            "timespan": timespan,
+            "from": from_date,
+            "to": to_date
+        }
+        
+        url = f"{endpoint}/{ticker}/range/1/{timespan}/{from_date}/{to_date}"
+        
+        # Send GET request
+        response = requests.get(url, params=params)
+        
+        # Check response status code
+        if response.status_code == 200:
+            # Parse JSON response
+            data = response.json()
+            
+            # Convert to pandas DataFrame
+            df = pd.DataFrame(data["results"])
+            
+            # Rename columns
+            df = df.rename(columns={
+                "o": "Open",
+                "c": "Close",
+                "h": "High",
+                "l": "Low",
+                "t": "Timestamp"
+            })
+            df['Now']=df['Close'].iloc[-1]
+            # Add Ticker column
+            df["Ticker"] = ticker
+            df['HighBe'] = df['Now'] / df['High']
+            df['direction'] = np.where((df['Close'] ) >= (df['Now']), 'Bear', 'Bull')
+            df['Volat']=df['Open']+df['Close']+df["High"]+df['Low']
+            df['Volat']=round(np.tan(df['Volat'].astype(float)),2)
+            df['Min']=min(df['Low'])
+            df['Max']=max(df['High'])
+            df['Emin']=df['Low'].expanding().min()
+            df['Emin']=(round(  df['Emin'],2))
+            df['Emax']=df['High'].expanding().max()
+            df['Emax']=(round(  df['Emax'],2))
+            df['Track']=(df['Low']-df['Emin'])*100/df['Emin']
+            df['Track']=(round(  df['Track'],2))
+            df['Daily_Low'] = df.groupby(df['Timestamp'].map(lambda x: datetime.fromtimestamp(x/1000).strftime('%Y-%m-%d')))['Low'].transform('min')
+            df['Track_Low'] = round(((df['Close'] - df['Daily_Low']) / df['Daily_Low']) * 100, 0)
+            df['Previous_Track'] = df['Track'].shift(1)
+            df['Prevtrack']= df['Track']-df['Previous_Track']
+            df['Play1'] = df.apply(lambda row: 'Play' if ((row['Previous_Track'] == 0) and abs(row['Track']) >= 13 and abs(row['Track']) <= 20) else None, axis=1)
+            df['Perc']=round((((df['Now']-df['Close'])/df['Close'])*100),0)
+            df['Watch']=(df['Close']-df['Emin'])*100/df['Emin']
+            df['3_min_ma'] = df['Low'].rolling(window=3).mean()
+            df['3_min_ma']=(round(df['3_min_ma'],2))
+            df['Prev_Close'] = df['Emin'].shift(1)
+            df['Price_Diff'] = df['Emin'] - df['Prev_Close']
+            df["Timestamp"] = pd.to_datetime(df["Timestamp"], unit="ms") - pd.Timedelta(hours=4)
+            df['Time_Diff'] = df['Timestamp'].diff().dt.total_seconds().abs() / 60
+            df['Ticker_Same'] = df['Ticker'] == df['Ticker'].shift(1)
+            df['Volat_Same'] = df['Volat'] == df['Volat'].shift(1)
+            df['Volat_Condition'] = (abs(df['Volat']) > 9.1)
+            df['Message'] = np.where((df['Ticker_Same'] == True) & 
+                         (df['Volat_Same'] == True) & 
+                         (df['Volat_Condition'] == True) &
+                         (df['Time_Diff'] <= 10), 'X', None)
+            df['Timestamp'] = df['Timestamp'].dt.strftime('%Y-%m-%d %H:%M')
+            df['Trade'] = df.apply(lambda row: 'Trade' if (row['Emin'] <=row['Emax']) and (row['Emax'] < row['3_min_ma']) else None, axis=1)
+            df['Previous_Volatile'] = df['Volat'].shift(1)
+            df['Play'] = df.apply(lambda row: 'Play' if (row['Volat'] == row['Previous_Volatile'] and abs(row['Volat']) > 10) and (row['Message'])=='X' else None, axis=1)
+            df['Point'] = df.apply(lambda row: 'Point' 
+                              if ((row['Min'] == row['Emin'] == row['3_min_ma']) | (row['Price_Diff'] == 0)) and 
+                                 (row['Emin'] >= 0.15) and (row['Emin'] < 1.2) 
+                              else None, axis=1)
+            # Calculate daily high and low
+            df['Daily_H'] = df.groupby(df['Timestamp'].str[:10])['High'].transform('max')
+            df['Daily_L'] = df.groupby(df['Timestamp'].str[:10])['Low'].transform('min')
+            df['Daily_O'] = df.groupby(df['Timestamp'].str[:10])['Open'].transform('first')
+            df['Daily_Hto'] = df['Daily_H'] - df['Daily_O']
+            df['H_O'] = round(((df['Daily_H'] - df['Daily_O']) / df['Daily_O']) * 100,0)
+            df['Daily_Lto'] = df['Daily_L'] - df['Daily_O']
+            df['LP'] = round(((df['Daily_L'] - df['Daily_O']) / df['Daily_L']) * 100,0)
+            
+            df.reset_index(drop=True, inplace=True)
+            
+            all_results_df = pd.concat([all_results_df, df], ignore_index=True)
+          
+            volatile_data1 = df[(df['Volat'] > 30) | (df['Volat'] < -30)]
+            volatile_data = df[(df['Trade'] == 'Trade') & (df['Point'] == 'Point')].head(1)
+            volatile_data1 = df[(df['Volat'] > 30) | (df['Volat'] < -30)]
+            volatile_data1a= df[(df['Volat'] == -34.23) & 
+                          (df['Min'] >= 0.07) & 
+                          (df['Min'] <= 0.1) & 
+                          (df['Now'] >= 0.12)]
+            volatile_data2= df[(df['Volat'] == 92.62) & 
+                         (df['Min'] >= 0.07) & 
+                      (df['Min'] <= 0.1) & 
+                      (df['Now'] >= 0.12)]
+            volatile_data3= df[(df['Volat'] == 1255.77) & 
+                         (df['Min'] >= 0.04) & 
+                         (df['Min'] <= 0.1) & 
+                         (df['Now'] >= 0.12)]
+            volatile_data4= df[(df['Volat'] ==-131.39) & 
+                         (df['Min'] >= 0.07) & 
+                         (df['Min'] <= 0.1) & 
+                         (df['Now'] >= 0.12)]
+            points_data1= df[(df['Perc'] >=10)& (df['Perc'] <= 45)& (df['Message'] == "X")]
+            #points_data= df[(df['Play'] =='Play')& (df['Now'] >= df['Emin'])& (df['Now'] > df['Close'])& (df['H_O'] >= 10)|(df['LP'] >= 10)] 
+           # points_data= df[(df['Play'] =='Play')& (20<=df['H_O'] >= 10)|(df['LP'] >= 10)&(df['Min'] <= 3)]  
+            points_data= df[(df['Min'] <= 3)&(df['Track_Low'] >= 20)&(df['Track_Low'] <= 60)]     
+                              
+            df_first_point2 = df[(df['Play1'] == 'Play')]
+            selected_values = df[(df['Volat'] < -10) | (df['Volat'] > 10)]
+            selected_timestamps = selected_values['Timestamp'].unique()
+            result = all_results_df[all_results_df['Timestamp'].isin(selected_timestamps)]
+            result1= pd.concat([result], ignore_index=True)     
+            extracted_data = result.copy()
+            extracted_data['Timestamp'] = pd.to_datetime(extracted_data['Timestamp'])
+            sorted_data = extracted_data.sort_values(by='Timestamp')
+            lowest_low_per_timestamp = sorted_data.loc[sorted_data.groupby('Timestamp')['Low'].idxmin()]
+            dfs.append(df)
+            all_results_df1 = pd.concat(dfs, ignore_index=True)
+            Low_Timestamp=pd.concat([lowest_low_per_timestamp],ignore_index=True)  
+            volatile_df1=pd.concat([sorted_data],ignore_index=True)
+            volatile_df = pd.concat([volatile_df, volatile_data1], ignore_index=True)
+            volatile_df_34 = pd.concat([volatile_df_34, volatile_data1a], ignore_index=True)
+            volatile_df_92 = pd.concat([volatile_df_92, volatile_data2], ignore_index=True)
+            volatile_df_1255 = pd.concat([volatile_df_1255, volatile_data3], ignore_index=True)
+            volatile_df_131 = pd.concat([volatile_df_131, volatile_data4], ignore_index=True)
+            points_0 = pd.concat([points_0,  points_data1], ignore_index=True)
+            points_1 = pd.concat([points_1,  points_data], ignore_index=True)
+            Point_2= pd.concat([Point_2,  df_first_point2], ignore_index=True)
+            print(f"Ticker: {ticker} added to the DataFrame")
+           # print(points_1[['Ticker','Timestamp','Volat','Min','Now','Track_Low']].tail(6).sort_values(by='Timestamp', ascending=False))
+            print(points_0[['Ticker','Timestamp','Volat','Perc','Close','Now','Max']].tail(8).sort_values(by='Timestamp', ascending=False))
+            print(points_1[['Ticker','Timestamp','Volat','Perc','Close','Now','Max']].tail(8).sort_values(by='Timestamp', ascending=False))
+           # print(points_2[['Ticker','Timestamp','Volat','Perc','Close','Now','Max']].tail(8).sort_values(by='Timestamp', ascending=False))
+        else:
+            print(f"Error fetching {ticker}: {response.status_code}")
+            
+schedule.every(2).minutes.do(fetch_data)  # Run job every 10 minutes
+            
+while True:
+    schedule.run_pending()
+    time.sleep(1)
